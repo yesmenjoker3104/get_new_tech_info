@@ -1,0 +1,16 @@
+[project]
+name = "get-new-tech-info"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.14"
+dependencies = [
+    "aiohttp>=3.13.5",
+    "apscheduler>=3.10",
+    "beautifulsoup4>=4.14.3",
+    "feedparser>=6.0.12",
+    "flet>=0.85.0",
+    "flet-desktop>=0.85.0",
+    "httpx>=0.28.1",
+    "pillow>=12.2.0",
+    "sqlalchemy>=2.0.49",
+]

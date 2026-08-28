@@ -14,3 +14,6 @@ dependencies = [
     "pillow>=12.2.0",
     "sqlalchemy>=2.0.49",
 ]
+
+[project.scripts]
+get-new-tech-info = "get_new_tech_info.cli:main"

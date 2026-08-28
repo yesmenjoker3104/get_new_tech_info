@@ -1,0 +1,42 @@
+name: Build CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-cli:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: python -m pip install pyinstaller aiohttp apscheduler beautifulsoup4 feedparser httpx sqlalchemy
+
+      - name: Build CLI
+        run: pyinstaller get_new_tech_info_cli.spec --noconfirm --clean
+
+      - name: Package CLI
+        shell: pwsh
+        run: Compress-Archive -Path dist/GetNewTechInfoCli.exe -DestinationPath GetNewTechInfoCli-Windows.zip
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'dev-latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Dev Build (Latest)' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          files: GetNewTechInfoCli-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

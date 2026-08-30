@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from .database import (
     add_category,
@@ -115,6 +115,24 @@ def _sources_update(args: argparse.Namespace) -> dict:
     return {"ok": True, "action": "sources_update", "name": args.name}
 
 
+def _sources_count() -> dict:
+    sources = get_all_sources()
+    with get_session() as session:
+        rows = (
+            session.execute(
+                select(Article.source, func.count(Article.id).label("cnt"))
+                .group_by(Article.source)
+            ).all()
+        )
+    counts_map = {row.source: row.cnt for row in rows}
+    items = [
+        {"name": s.name, "enabled": s.enabled, "count": counts_map.get(s.name, 0)}
+        for s in sources
+    ]
+    total = sum(i["count"] for i in items)
+    return {"ok": True, "action": "sources_count", "total": total, "sources": items}
+
+
 def _sources_delete(args: argparse.Namespace) -> dict:
     src = next((s for s in get_all_sources() if s.name == args.name), None)
     if not src:
@@ -191,6 +209,7 @@ def build_parser() -> argparse.ArgumentParser:
     sources_sub = sources.add_subparsers(dest="sources_command", required=True)
 
     sources_sub.add_parser("list", help="登録済みソースを一覧表示")
+    sources_sub.add_parser("count", help="ソースごとの記事件数を表示")
 
     src_add = sources_sub.add_parser("add", help="RSSソースを追加")
     src_add.add_argument("name", help="ソース名")
@@ -240,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "sources":
             if args.sources_command == "list":
                 result = _sources_list()
+            elif args.sources_command == "count":
+                result = _sources_count()
             elif args.sources_command == "add":
                 result = _sources_add(args)
             elif args.sources_command == "update":

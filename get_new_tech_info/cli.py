@@ -229,7 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "search" and not 1 <= args.limit <= 100:
-        print(json.dumps({"ok": False, "error": "limitは1から100の範囲で指定してください。"}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": "limitは1から100の範囲で指定してください。"}, ensure_ascii=True))
         return 2
     try:
         init_db()
@@ -262,12 +262,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             result = {"ok": False, "error": "不明なコマンドです。"}
         if not result.get("ok"):
-            print(json.dumps(result, ensure_ascii=False))
+            print(json.dumps(result, ensure_ascii=True))
             return 1
-        print(json.dumps(result, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=True))
         return 0
     except Exception as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=True))
         return 1
 
 

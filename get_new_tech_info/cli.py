@@ -67,6 +67,30 @@ def _mark_read(args: argparse.Namespace) -> dict:
     return {"ok": True, "action": "mark_read", "updated": result.rowcount}
 
 
+def _bookmark(args: argparse.Namespace) -> dict:
+    article_ids = list(dict.fromkeys(args.article_ids))
+    with get_session() as session:
+        result = session.execute(
+            update(Article)
+            .where(Article.id.in_(article_ids))
+            .values(is_bookmarked=True)
+        )
+        session.commit()
+    return {"ok": True, "action": "bookmark", "updated": result.rowcount}
+
+
+def _unbookmark(args: argparse.Namespace) -> dict:
+    article_ids = list(dict.fromkeys(args.article_ids))
+    with get_session() as session:
+        result = session.execute(
+            update(Article)
+            .where(Article.id.in_(article_ids))
+            .values(is_bookmarked=False)
+        )
+        session.commit()
+    return {"ok": True, "action": "unbookmark", "updated": result.rowcount}
+
+
 # --- sources ---
 
 def _sources_list() -> dict:
@@ -218,6 +242,12 @@ def build_parser() -> argparse.ArgumentParser:
     mark_read = subparsers.add_parser("mark-read", help="記事を既読にする")
     mark_read.add_argument("article_ids", type=int, nargs="+", help="既読にする記事ID")
 
+    bookmark_p = subparsers.add_parser("bookmark", help="記事をブックマークする")
+    bookmark_p.add_argument("article_ids", type=int, nargs="+")
+
+    unbookmark_p = subparsers.add_parser("unbookmark", help="ブックマークを解除する")
+    unbookmark_p.add_argument("article_ids", type=int, nargs="+")
+
     subparsers.add_parser("fetch", help="有効なソースから記事を取得")
 
     # sources
@@ -283,6 +313,10 @@ def main(argv: list[str] | None = None) -> int:
             result = _search(args)
         elif args.command == "mark-read":
             result = _mark_read(args)
+        elif args.command == "bookmark":
+            result = _bookmark(args)
+        elif args.command == "unbookmark":
+            result = _unbookmark(args)
         elif args.command == "sources":
             if args.sources_command == "list":
                 result = _sources_list()

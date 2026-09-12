@@ -52,12 +52,11 @@ def fetch_all_sync() -> int:
                 pass
 
 
-def fetch_all_sync_silent() -> int:
+def fetch_all_sync_silent() -> tuple[int, list[dict]]:
     """UI更新コールバックを呼ばない版（手動リフレッシュ用）"""
     loop = asyncio.new_event_loop()
     try:
-        saved, _ = loop.run_until_complete(_fetch_all_async())
-        return saved
+        return loop.run_until_complete(_fetch_all_async())
     finally:
         loop.close()
 

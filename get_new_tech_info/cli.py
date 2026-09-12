@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 
 from .database import (
     add_category,
@@ -53,6 +53,18 @@ def _search(args: argparse.Namespace) -> dict:
         query = query.order_by(Article.published_at.desc(), Article.id.desc()).limit(args.limit)
         articles = [_article_dict(article) for article in session.scalars(query).all()]
     return {"ok": True, "action": "search", "count": len(articles), "articles": articles}
+
+
+def _mark_read(args: argparse.Namespace) -> dict:
+    article_ids = list(dict.fromkeys(args.article_ids))
+    with get_session() as session:
+        result = session.execute(
+            update(Article)
+            .where(Article.id.in_(article_ids))
+            .values(is_read=True)
+        )
+        session.commit()
+    return {"ok": True, "action": "mark_read", "updated": result.rowcount}
 
 
 # --- sources ---
@@ -115,22 +127,23 @@ def _sources_update(args: argparse.Namespace) -> dict:
     return {"ok": True, "action": "sources_update", "name": args.name}
 
 
-def _sources_count() -> dict:
+def _sources_count(args: argparse.Namespace) -> dict:
     sources = get_all_sources()
     with get_session() as session:
-        rows = (
-            session.execute(
-                select(Article.source, func.count(Article.id).label("cnt"))
-                .group_by(Article.source)
-            ).all()
-        )
+        query = select(Article.source, func.count(Article.id).label("cnt"))
+        if args.unread:
+            query = query.where(Article.is_read == False)
+        elif args.read:
+            query = query.where(Article.is_read == True)
+        rows = session.execute(query.group_by(Article.source)).all()
     counts_map = {row.source: row.cnt for row in rows}
     items = [
         {"name": s.name, "enabled": s.enabled, "count": counts_map.get(s.name, 0)}
         for s in sources
     ]
     total = sum(i["count"] for i in items)
-    return {"ok": True, "action": "sources_count", "total": total, "sources": items}
+    status = "unread" if args.unread else "read" if args.read else "all"
+    return {"ok": True, "action": "sources_count", "status": status, "total": total, "sources": items}
 
 
 def _sources_delete(args: argparse.Namespace) -> dict:
@@ -202,6 +215,9 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--unread", action="store_true", help="未読のみ")
     search.add_argument("--limit", type=int, default=10)
 
+    mark_read = subparsers.add_parser("mark-read", help="記事を既読にする")
+    mark_read.add_argument("article_ids", type=int, nargs="+", help="既読にする記事ID")
+
     subparsers.add_parser("fetch", help="有効なソースから記事を取得")
 
     # sources
@@ -209,7 +225,10 @@ def build_parser() -> argparse.ArgumentParser:
     sources_sub = sources.add_subparsers(dest="sources_command", required=True)
 
     sources_sub.add_parser("list", help="登録済みソースを一覧表示")
-    sources_sub.add_parser("count", help="ソースごとの記事件数を表示")
+    src_count = sources_sub.add_parser("count", help="ソースごとの記事件数を表示")
+    count_status = src_count.add_mutually_exclusive_group()
+    count_status.add_argument("--unread", action="store_true", help="未読のみ")
+    count_status.add_argument("--read", action="store_true", help="既読のみ")
 
     src_add = sources_sub.add_parser("add", help="RSSソースを追加")
     src_add.add_argument("name", help="ソース名")
@@ -253,14 +272,22 @@ def main(argv: list[str] | None = None) -> int:
     try:
         init_db()
         if args.command == "fetch":
-            result = {"ok": True, "action": "fetch", "saved": fetch_all_sync_silent()}
+            saved, sources = fetch_all_sync_silent()
+            result = {
+                "ok": True,
+                "action": "fetch",
+                "saved": saved,
+                "sources": sources,
+            }
         elif args.command == "search":
             result = _search(args)
+        elif args.command == "mark-read":
+            result = _mark_read(args)
         elif args.command == "sources":
             if args.sources_command == "list":
                 result = _sources_list()
             elif args.sources_command == "count":
-                result = _sources_count()
+                result = _sources_count(args)
             elif args.sources_command == "add":
                 result = _sources_add(args)
             elif args.sources_command == "update":

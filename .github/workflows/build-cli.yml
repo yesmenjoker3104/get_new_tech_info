@@ -31,13 +31,29 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist/GetNewTechInfoCli.exe -DestinationPath GetNewTechInfoCli-Windows.zip
 
+      - name: Package plugin
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:REF_TYPE -eq "tag") {
+            $manifestVersion = (Get-Content plugin/plugin.json -Raw | ConvertFrom-Json).version
+            if ("v$manifestVersion" -ne $env:REF_NAME) {
+              throw "plugin/plugin.json version ($manifestVersion) does not match tag ($env:REF_NAME)"
+            }
+          }
+          Compress-Archive -Path dist/GetNewTechInfoCli.exe, plugin/plugin.json -DestinationPath GetNewTechInfo.zip
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'dev-latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Dev Build (Latest)' }}
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          files: GetNewTechInfoCli-Windows.zip
+          files: |
+            GetNewTechInfoCli-Windows.zip
+            GetNewTechInfo.zip
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

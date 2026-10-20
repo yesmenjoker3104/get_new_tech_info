@@ -1,3 +1,5 @@
+import os
+import shutil
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -7,11 +9,34 @@ from sqlalchemy.orm import Session
 
 from .models import AppSettings, Base, FeedSource, SourceCategory, SETTING_DEFAULTS, DEFAULT_SOURCES, DEFAULT_CATEGORY
 
-if getattr(sys, "frozen", False):
-    DB_PATH = Path(sys.executable).parent / "get_new_tech_info.db"
-else:
-    DB_PATH = Path(__file__).parent.parent / "get_new_tech_info.db"
+DB_FILE_NAME = "get_new_tech_info.db"
 
+
+def _app_data_dir() -> Path:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    base = Path(local_app_data) if local_app_data else Path.home() / "AppData" / "Local"
+    return base / "get_new_tech_info"
+
+
+def _legacy_db_path() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent / DB_FILE_NAME
+    return Path(__file__).parent.parent / DB_FILE_NAME
+
+
+DB_PATH = _app_data_dir() / DB_FILE_NAME
+
+
+def _migrate_legacy_db() -> None:
+    """旧バージョンの exe 横 / プロジェクト直下の DB を、初回だけ AppData 側へ複製する。"""
+    legacy = _legacy_db_path()
+    if DB_PATH.exists() or not legacy.is_file():
+        return
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(legacy, DB_PATH)
+
+
+_migrate_legacy_db()
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 

@@ -112,7 +112,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 出力先: `dist/get_new_tech_info.exe`
 
-exe実行時のDB保存先: exeと同じフォルダ（`sys.frozen` 判定で切り替え）
+DB保存先: `%LOCALAPPDATA%\get_new_tech_info\get_new_tech_info.db`（exe/開発実行で共通）。旧保存先（exe横 / プロジェクト直下）のDBは、新保存先が無い初回起動時に複製される。
 
 ## アーキテクチャ
 
